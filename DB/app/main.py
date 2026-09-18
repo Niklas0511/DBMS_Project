@@ -10,7 +10,7 @@ from fastapi import Depends, Header, HTTPException, Query, Response, status
 from psycopg import sql
 from psycopg.errors import ForeignKeyViolation, UniqueViolation
 from psycopg.rows import dict_row
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 
 DATABASE_URL = os.environ["DATABASE_URL"]
 pool = AsyncConnectionPool(DATABASE_URL, open=False)
@@ -45,6 +45,48 @@ class GeraetCreate(BaseModel):
     typ: str = Field(min_length=1, max_length=100)
     wartungsintervall: int = Field(gt=0)
     standort_id: int
+
+class TechnikerEingabe(BaseModel):
+    name: str = Field(min_length=1, max_length=150)
+    standort_ids: list[int] = Field(default_factory=list)
+    geraetetypen: list[str] = Field(default_factory=list)
+
+    @field_validator("name")
+    @classmethod
+    def name_pruefen(cls, wert):
+        wert = wert.strip()
+
+        if not wert:
+            raise ValueError("Name darf nicht leer sein")
+
+        return wert
+
+    @field_validator("standort_ids")
+    @classmethod
+    def standorte_pruefen(cls, werte):
+        if any(wert <= 0 for wert in werte):
+            raise ValueError("Standort-IDs müssen positiv sein")
+
+        return sorted(set(werte))
+
+    @field_validator("geraetetypen")
+    @classmethod
+    def typen_pruefen(cls, werte):
+        ergebnis = set()
+
+        for wert in werte:
+            wert = wert.strip()
+
+            if not wert or len(wert) > 100:
+                raise ValueError(
+                    "Gerätetypen müssen zwischen 1 und 100 Zeichen haben"
+                )
+
+            ergebnis.add(wert)
+
+        return sorted(ergebnis)
+
+
 
 
 @app.get("/health")
@@ -86,7 +128,7 @@ class GeraetPatch(BaseModel):
 class WartungsplanCreate(BaseModel):
     datum: date
     geraet_seriennummer: str = Field(min_length=1, max_length=100)
-    techniker_id: int = Field(gt=0)
+    techniker_id: int = Field(gt=0)    
 
 
 class WartungsplanUpdate(BaseModel):
@@ -257,7 +299,24 @@ async def geraet_lesen(seriennummer: str):
                 )
 
             return geraet
+@app.get("/standorte")
+async def standorte_lesen():
+    async with pool.connection() as connection:
+        async with connection.cursor(row_factory=dict_row) as cursor:
+            await cursor.execute(
+                """
+                SELECT
+                    id,
+                    plz,
+                    stadt,
+                    strasse,
+                    hausnummer
+                FROM standort
+                ORDER BY stadt, strasse, hausnummer
+                """
+            )
 
+            return await cursor.fetchall()
 @app.get("/standorte/{standort_id}/geraete")
 async def geraete_eines_standorts(standort_id: int):
     async with pool.connection() as connection:
@@ -374,6 +433,64 @@ async def ueberfaellige_wartungen():
             )
 
             return await cursor.fetchall()
+@app.get("/techniker")
+async def techniker_lesen():
+    async with pool.connection() as connection:
+        async with connection.cursor(row_factory=dict_row) as cursor:
+            await cursor.execute(
+                """
+                SELECT
+                    t.id,
+                    t.name,
+                    ARRAY(
+                        SELECT st.standort_id
+                        FROM standort_techniker AS st
+                        WHERE st.techniker_id = t.id
+                        ORDER BY st.standort_id
+                    ) AS standort_ids,
+                    ARRAY(
+                        SELECT tt.geraetetyp
+                        FROM typ_techniker AS tt
+                        WHERE tt.techniker_id = t.id
+                        ORDER BY tt.geraetetyp
+                    ) AS geraetetypen
+                FROM techniker AS t
+                ORDER BY t.name, t.id
+                """
+            )
+
+            return await cursor.fetchall()
+
+
+async def zuständigkeiten_speichern(cursor, techniker_id, daten):
+    # Wird innerhalb derselben Transaktion wie INSERT/UPDATE ausgeführt.
+    await cursor.execute(
+        "DELETE FROM standort_techniker WHERE techniker_id = %s",
+        (techniker_id,),
+    )
+
+    await cursor.execute(
+        "DELETE FROM typ_techniker WHERE techniker_id = %s",
+        (techniker_id,),
+    )
+
+    for standort_id in daten.standort_ids:
+        await cursor.execute(
+            """
+            INSERT INTO standort_techniker (standort_id, techniker_id)
+            VALUES (%s, %s)
+            """,
+            (standort_id, techniker_id),
+        )
+
+    for geraetetyp in daten.geraetetypen:
+        await cursor.execute(
+            """
+            INSERT INTO typ_techniker (geraetetyp, techniker_id)
+            VALUES (%s, %s)
+            """,
+            (geraetetyp, techniker_id),
+        )
 
 @app.post(
     "/wartungen",
@@ -537,6 +654,115 @@ async def wartung_planen(wartungsplan: WartungsplanCreate):
             detail="Gerät oder Techniker existiert nicht",
         ) from error
 
+@app.post(
+    "/standorte",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_api_key)],
+)
+async def standort_anlegen(standort: StandortCreate):
+    async with pool.connection() as connection:
+        async with connection.cursor(row_factory=dict_row) as cursor:
+            await cursor.execute(
+                """
+                INSERT INTO standort (
+                    plz,
+                    stadt,
+                    strasse,
+                    hausnummer
+                )
+                VALUES (%s, %s, %s, %s)
+                RETURNING
+                    id,
+                    plz,
+                    stadt,
+                    strasse,
+                    hausnummer
+                """,
+                (
+                    standort.plz,
+                    standort.stadt,
+                    standort.strasse,
+                    standort.hausnummer,
+                ),
+            )
+
+            return await cursor.fetchone()
+
+@app.post(
+    "/techniker",
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_api_key)],
+)
+async def techniker_anlegen(daten: TechnikerEingabe):
+    try:
+        async with pool.connection() as connection:
+            async with connection.transaction():
+                async with connection.cursor(row_factory=dict_row) as cursor:
+                    await cursor.execute(
+                        """
+                        INSERT INTO techniker (name)
+                        VALUES (%s)
+                        RETURNING id
+                        """,
+                        (daten.name,),
+                    )
+
+                    techniker = await cursor.fetchone()
+                    techniker_id = techniker["id"]
+
+                    await zuständigkeiten_speichern(
+                        cursor, techniker_id, daten
+                    )
+
+        return {"id": techniker_id, **daten.model_dump()}
+
+    except ForeignKeyViolation as error:
+        raise HTTPException(
+            status_code=422,
+            detail="Mindestens ein ausgewählter Standort existiert nicht",
+        ) from error
+
+
+@app.put(
+    "/techniker/{techniker_id}",
+    dependencies=[Depends(require_api_key)],
+)
+async def techniker_aendern(
+    techniker_id: int,
+    daten: TechnikerEingabe,
+):
+    try:
+        async with pool.connection() as connection:
+            async with connection.transaction():
+                async with connection.cursor(row_factory=dict_row) as cursor:
+                    # UPDATE sperrt den Techniker für gleichzeitige Änderungen.
+                    await cursor.execute(
+                        """
+                        UPDATE techniker
+                        SET name = %s
+                        WHERE id = %s
+                        RETURNING id
+                        """,
+                        (daten.name, techniker_id),
+                    )
+
+                    if await cursor.fetchone() is None:
+                        raise HTTPException(
+                            status_code=404,
+                            detail="Techniker nicht gefunden",
+                        )
+
+                    await zuständigkeiten_speichern(
+                        cursor, techniker_id, daten
+                    )
+
+        return {"id": techniker_id, **daten.model_dump()}
+
+    except ForeignKeyViolation as error:
+        raise HTTPException(
+            status_code=422,
+            detail="Mindestens ein ausgewählter Standort existiert nicht",
+        ) from error
 @app.put(
     "/wartungsplan/{wartungsplan_id}",
     dependencies=[Depends(require_api_key)],
