@@ -1366,7 +1366,7 @@ class App(tk.Frame):
         self._techniker_name.delete(0, tk.END)
         self._techniker_name.insert(0, daten["name"])
 
-        self._techniker_typen.delete(0, tk.END)
+        self._techniker_typen.delete(0, tk.END)The
         self._techniker_typen.insert(
             0, "; ".join(daten["geraetetypen"])
         )

@@ -1,0 +1,119 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{thga-db}
+
+\renewcommand{\thgaKurs}{Databases}
+\renewcommand{\thgaDatum}{Summer Term 2026}
+
+\begin{document}
+\thispagestyle{empty}
+\thgaTitel{Term Project – User Manual}%
+{Wartungsmangement Datenbankanwendung}%
+
+\begin{infobox}
+\textbf{Author:} Niklas Stratenwerth  \\
+\textbf{Module:} Introduction to Database Management Systems · THGA Bochum \\
+\textbf{Stack:} PostgreSQL · FastAPI · Docker Compose · tkinter (\texttt{.deb}) \\
+\textbf{Repository:} \url{https://github.com/Niklas0511/DBMS_Project} \\
+\end{infobox}
+
+\tableofcontents
+\vspace{1em}
+
+% ============================================================
+\section{Allgemeines}
+% ============================================================
+
+Die Wartungsmanagement Desktopanwendung ist eine Desktopanwendung, die es ermöglicht, Wartungen an Geräten zu planen und durchgeführte 
+zu dokumentieren. Sollte nicht bereits ein API-Key in der \texttt{.env} Datei hinterlegt sein, muss dieser vor dem anlegen neuer Wartungen, Geräte, Standorte oder Techniker
+über das {\texttt{X-API-Key}} Feld eingegeben werden. Das anzeigen der Daten funktioniert auch ohne diesen API-Key.
+Darunter besteht die Anwendung aus sechs Tabs, {\texttt{Statistik}}, {\texttt{Geräte}}, {\texttt{Wartungsplan}},{\texttt{Wartungen}}, {\texttt{Standorte}} und {\texttt{Techniker}}.
+Um die Bedienung zu erleichtern wird empfohlen, bei erstmaliger Einrichtung der Anwendung zuerst die Standorte, dann die Techniker und danach die Geräte anzulegen. 
+Danach können Wartungen geplant und durchgeführt werden.
+Auf einzelnen Tabs wird im Folgenden näher eingegangen.
+
+% ============================================================
+\section{Statistik Tab}
+% ============================================================
+
+In diesem Tab werden die Statistiken der Wartungen angezeigt. Hierzu muss der Benutzer einen Zeitraum auswählen, dies geschieht
+durch die Auswahl von Start- und Enddatum im JJJJ-MM-DD Format. Danach kann über die beiden Knöpfe ausgewählt werden, ob die Statistiken nach Standorten oder nach Technikern
+aufgeschlüsselt werden sollen. Bei der Aufschlüsselung nach Standort werden nach ID sortiert die einzelnen Standorte mit der Anzahl derr im Zeitraum durchgeführten Wartungen
+und der Anzahl der offenen geplanten Wartungen angezeigt. 
+Bei der Aufschlüsselung nach Technikern werden nach ID sortiert die einzelnen Techniker mit der Anzahl der im Zeitraum durchgeführten Wartungen
+angezeigt. Die Statistiken werden in einer Tabelle angezeigt.
+
+% ============================================================
+\section{Geräte Tab}
+% ============================================================
+In diesem Tab kann entweder nach spezifischen Geräten über ihre Seriennummer gesucht werden 
+oder es können alle Geräte eines Standorts angezeigt werden. Diese Auswahl passiert durch die Textfelder {\texttt{Seriennummer}} 
+und {\texttt{Standort-ID}} im Bereich Geräte anzeigen. Nach eintragen der Seriennummer und dem Drücken des Knopfes {\texttt{Gerät suchen}}
+ wird das Gerät mit der entsprechenden Seriennummer angezeigt. Wird stattdessen eine Standort-ID eingetragen und der Knopf {\texttt{Geräte am Standort}} 
+ gedrückt, werden alle Geräte des Standorts angezeigt.
+Unabhängig von dieser Auswahl werden die Informationen zu den Geräteen in der Tabelle darunter angezeigt. 
+Hierzu gehören die Seriennummer, der Hersteller, der Gerätetyp, das Wartungsintervall, der Standort und die Nächste geplante Wartung.
+Neue Geräte können über die Textfelder im Bereich {\texttt{Neues Gerät}} hinzugefügt werden. 
+Hierzu müssen alle Felder ausgefüllt werden und der Knopf {\texttt{Gerät anlegen}} gedrückt werden.
+
+% ============================================================
+\section{Wartungsplan Tab}
+% ============================================================
+
+In diesem Tab können geplante Wartungen angezeigt und neue Wartungen geplant werden.
+Gesteuert, welche geplkanten Wartungen angezeigt werden, wird über den Abschnitt {\texttt{Wartungsplan anzeigen}}.
+In diesem Abschnitt kann entweder ein Zeitraum im JJJJ-MM-DD Format ausgewählt werden, oder es kann eine Techniker-ID eingetragen werden.
+Um dann den Wartungsplan anzuzeigen, muss für den Zeitraum der Knopf {\texttt{Zeitraum laden}} gedrückt werden und 
+für die Techniker-ID der Knopf {\texttt{Techniker laden}} es ist außerdem möglich über den Knopf {\texttt{überfällige Laden}} alle
+Wartungen anzuzeigen, die noch nicht durchgeführt wurden und deren geplantes Datum überschritten wurde.
+
+Unabhängig von der Auswahl werden die geplanten Wartungen in der Tabelle darunter angezeigt. Hierzu gehören die ID der Wartung, das geplante Datum, die Seriennummer des Geräts,
+die Techniker-ID, der Name des Technikers, der Standort und der Status.
+Neue Wartungen können über den Abschnitt {\texttt{Wartung planen oder ändern}} geplant werden.
+Um einen neue Wartung zu planen, kann das Feld {\texttt{Plan-ID}} leer gelassen werden, es muss nur das geplante Datum, die Seriennummer des Geräts und die Techniker-ID eingetragen werden.
+Um eine bestehende Wartung zu ändern, muss die ID der Wartung in das Feld {\texttt{Plan-ID}} eingetragen werden und die Felder, die geändert werden sollen, müssen ausgefüllt werden.
+Danach kann entweder der Knopf {\texttt{Planen}}, der Knopf {\texttt{Ändern}} oder der Knopf {\texttt{Löschen}} gedrückt werden, je nachdem ob eine neue Wartung geplant oder eine bestehende 
+Wartung geändert oder gelöscht werden soll. 
+
+% ============================================================
+\section{Wartungen Tab}
+% ============================================================
+
+In diesem Tab können durchgeführte Wartungen angezeigt und neue Wartungen dokumentiert werden.
+Gesteuert, welche durchgeführten Wartungen angezeigt werden, wird über den Abschnitt {\texttt{Wartungshistorei}}.
+Hier kann im Feld {\texttt{Seriennummer}} die Seriennummer des Geräts eingetragen werden, dessen Wartungshistorie angezeigt werden soll.
+Danach muss der Knopf {\texttt{Historie laden}} gedrückt werden, um die Wartungshistorie anzuzeigen. Die Wartungshistorie wird in 
+der Tabelle darunter angezeigt. Hierzu gehören die ID der Wartung, das Datum der Wartung, die Seriennummer des Geräts, die Techniker-ID, der
+Name des Technikers, optional die Seriennummer eines Ersatzgeräts und die zugehörige Plan ID.
+Neue Wartungen können über den Abschnitt {\texttt{Durchgeführte Wartung dokumentieren}} dokumentiert werden. 
+Hierzu müssen das Datum der Wartung, die Seriennummer des Geräts, die Techniker-ID, optional die Seriennummer eines Ersatzgeräts und optional die zugehörige Plan ID eingetragen werden.
+Danach muss der Knopf {\texttt{Wartung speichern}} gedrückt werden, um die Wartung zu speichern.
+
+% ============================================================
+\section{Standorte Tab}
+% ============================================================
+
+In diesem Tab können Standorte angezeigt und neue Standorte angelegt werden.
+Alle Standorte werden in der Tablle {\texttt{Vorhandene Standorte}} angezeigt. Hierzu gehören die ID des Standorts,
+die Postleitzahl und die Adresse. Diese Liste kann bei Bedarf über den Knopf {\texttt{Aktualisieren}} aktualisiert werden. Außerdem kann nach
+anklicken eines Standortes in der Tabelle, über den Knopf {\texttt{Auswahl für Gerät übernehmen}} die ID des Standorts in das Feld {\texttt{Standort-ID}} im Abschnitt {\texttt{Geräte}}
+übernommen werden, um ein neues Gerät an diesem Standort anzulegen. Neue Standorte können über den Abschnitt {\texttt{Neuen Standort anlegen}} angelegt werden.
+Hierfür müssen die Postleitzahl und die Adresse eingetragen werden und der Knopf {\texttt{Standort anlegen}} gedrückt werden.
+
+% ============================================================
+\section{Techniker Tab}
+% ============================================================
+
+In diesem Tab können Techniker angezeigt und neue Techniker angelegt werden.
+Alle Techniker werden in der Tablle {\texttt{Vorhandene Techniker}} angezeigt. Hierzu gehören die ID des Technikers, der Name, die Standort IDs und die Gerätetypen.
+Diese Liste kann bei Bedarf über den Knopf {\texttt{Aktualisieren}} aktualisiert werden. Außerdem kann nach anklicken eines Technikers in der Tabelle,
+über den Knopf {\texttt{ID in beide Formulare übernehmen }} die ID des Technikers in das Feld {\texttt{Techniker-ID}} im Abschnitt {\texttt{Wartungsplan}} und 
+in das Feld {\texttt{Techniker-ID}} im Abschnitt {\texttt{Wartungen}} eingetragen werden, um eine neue Wartung zu planen oder eine durchgeführte Wartung zu dokumentieren.
+Neue Techniker können über den Abschnitt {\texttt{Techniker und Zuständigkeiten}} angelegt werden.
+Hierfür muss der Name des Technikers in das Feld {\texttt{Name}} eingetragen werden. 
+Darunter können unter {\texttt{Zuständige Standorte}} alle Standorte ausgewählt werden, für welche der Techniker zuständig ist.
+Außerdem können unter {\texttt{Gerätetypen}} alle Gerätetypen mit Semikolon getrennt eingetragen werden, für welche der Techniker zuständig ist.
+Darunter kann der Knopf {\texttt{Speichern}} gedrückt werden, um den Techniker anzulegen. oder der Knopf {\texttt{Neu/Eingabe leeren}} gedrückt werden,
+um die Eingabefelder zu leeren.
+
+\end{document}(example)

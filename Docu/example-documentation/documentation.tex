@@ -1,0 +1,554 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage{thga-db}
+
+\renewcommand{\thgaKurs}{Databases}
+\renewcommand{\thgaDatum}{Summer Term 2026}
+
+\begin{document}
+\thispagestyle{empty}
+\thgaTitel{Term Project – Documentation }%
+{Wartungsmangement Datenbankanwendung}%
+
+\begin{infobox}
+\textbf{Author:} Niklas Stratenwerth  \\
+\textbf{Module:} Introduction to Database Management Systems · THGA Bochum \\
+\textbf{Stack:} PostgreSQL · FastAPI · Docker Compose · tkinter (\texttt{.deb}) \\
+\textbf{Repository:} \url{https://github.com/Niklas0511/DBMS_Project} \\
+\end{infobox}
+
+\tableofcontents
+\vspace{1em}
+
+% ============================================================
+\section{Introduction and motivation}
+% ============================================================
+
+Ob Geräte gewartet werden wird häufig nicht dokumentiert, oder ob diese ersetzt wurden.
+Desweiteren ist häufig unklar, welche Geräte überhaupt an einem Standort vorhanden sind.
+Wenn dies dolumentiert wird ist es meist Formlos und von Standort zu Standort unterschiedlich.
+Die Anwendung soll die Dokumentation der Wartung von Geräten vereinfachen und standardisieren.
+
+\textbf{Wartungsmanagement} Hält sowohl die Geräte als auch die Wartungsdaten in einer zentralen Datenbank fest.
+Es verwaltet \textbf{Geräte}, \textbf{Wartungen} and \textbf{Standorte}, Die Daten können durch eine Desktop Anwendung abgerufen
+und modifiziert werden.
+
+\begin{beispielbox}
+\textbf{Anwendungsszenario.} Ein Techniker möchte sehen, welche Wartungen aktuell geplant sind.
+Dazu kann er in der Desktio Anwendung nachschauen, welche Wartungen für diesen Monat geplant sind.
+Er kann auch sehen, welche Geräte an einem Standort vorhanden sind und welche Wartungen bereits durchgeführt wurden. 
+\end{beispielbox}
+
+% ============================================================
+\section{Data model}
+% ============================================================
+
+Die Domäne umfasst die Entitätstypen \textbf{Standort},
+\textbf{Techniker}, \textbf{Gerät}, \textbf{Wartungsplan}
+und \textbf{Wartung} sowie zwei Zuordnungstabellen.
+
+Ein Standort kann mehrere Geräte beherbergen, während jedes Gerät
+genau einem Standort zugeordnet ist. Zwischen Standorten und
+Technikern besteht eine N:M-Beziehung, die durch die Tabelle\item PyInstaller / \texttt{fpm} packaging commands -- after \textbf{lecture
+        13}.
+\texttt{standort\_techniker} aufgelöst wird.
+
+Die Tabelle \texttt{typ\_techniker} ordnet Technikern die Gerätetypen
+zu, für die sie zuständig sind. Ein Techniker kann für mehrere
+Gerätetypen zuständig sein, und ein Gerätetyp kann mehreren
+Technikern zugeordnet werden. Gerätetypen werden als Zeichenketten
+gespeichert; eine eigene Entität für Gerätetypen existiert nicht.
+
+Ein Wartungsplan beschreibt eine geplante Wartung für genau ein
+Gerät durch genau einen Techniker. Eine Wartung dokumentiert
+hingegen eine tatsächlich durchgeführte Arbeit und verweist
+ebenfalls auf genau ein Gerät und einen Techniker.
+Sie kann optional einem Wartungsplan zugeordnet werden.
+
+\begin{beispielbox}
+\textbf{ER-Modell (textuell).}
+
+\begin{itemize}[leftmargin=1.4em, topsep=2pt]
+  \item \textbf{Standort} (1) -- beherbergt -- (N)
+        \textbf{Gerät}
+
+  \item \textbf{Standort} (1) -- ist zugeordnet -- (N)
+        \textbf{Standort-Techniker-Zuordnung}
+
+  \item \textbf{Techniker} (1) -- ist zugeordnet -- (N)
+        \textbf{Standort-Techniker-Zuordnung}
+
+  \item \textbf{Techniker} (1) -- ist zugeordnet -- (N)
+        \textbf{Gerätetyp-Techniker-Zuordnung}
+
+  \item \textbf{Gerät} (1) -- hat -- (N)
+        \textbf{Wartungsplan}
+
+  \item \textbf{Techniker} (1) -- ist eingeteilt für -- (N)
+        \textbf{Wartungsplan}
+
+  \item \textbf{Gerät} (1) -- erhält -- (N)
+        \textbf{Wartung}
+
+  \item \textbf{Techniker} (1) -- führte durch -- (N)
+        \textbf{Wartung}
+
+  \item \textbf{Wartungsplan} (0..1) -- ist zugeordnet zu -- (N)
+        \textbf{Wartung}
+\end{itemize}
+
+Damit besteht zwischen \textbf{Standort} und \textbf{Techniker}
+eine N:M-Beziehung, aufgelöst durch
+\texttt{standort\_techniker}.
+
+Jede Wartung verweist auf höchstens einen Wartungsplan.
+Das vorliegende Schema erlaubt jedoch mehrere Wartungen pro
+Wartungsplan, da \texttt{wartungsplan\_id} in der Tabelle
+\texttt{wartung} nicht eindeutig sein muss.
+\end{beispielbox}
+
+\subsection{Relationales Schema}
+
+Aus dem ER-Modell ergeben sich die folgenden Relationen.
+Primärschlüssel sind unterstrichen, Fremdschlüssel kursiv dargestellt.
+Attribute, die zu beiden Schlüsselarten gehören, sind sowohl
+unterstrichen als auch kursiv gesetzt.
+
+\begin{itemize}[leftmargin=1.4em]
+  \item \texttt{standort}(\underline{id}, plz, stadt,
+        strasse, hausnummer)
+
+  \item \texttt{techniker}(\underline{id}, name)
+
+  \item \texttt{geraet}(\underline{seriennummer}, hersteller,
+        typ, wartungsintervall, \emph{standort\_id})
+
+  \item \texttt{standort\_techniker}(
+        \underline{\emph{standort\_id}},
+        \underline{\emph{techniker\_id}})
+
+  \item \texttt{typ\_techniker}(
+        \underline{geraetetyp},
+        \underline{\emph{techniker\_id}})
+
+  \item \texttt{wartungsplan}(\underline{id}, datum,
+        \emph{geraet\_seriennummer}, \emph{techniker\_id})
+
+  \item \texttt{wartung}(\underline{id}, datum,
+        ersatzgeraet, \emph{geraet\_seriennummer},
+        \emph{techniker\_id}, \emph{wartungsplan\_id})
+\end{itemize}
+
+\textbf{Integritätsbedingungen.}
+Die IDs von Standorten, Technikern, Wartungsplänen und Wartungen
+werden automatisch erzeugt. Geräte werden über ihre Seriennummer
+identifiziert. Die zusammengesetzten Primärschlüssel der
+Zuordnungstabellen verhindern doppelte Zuordnungen.
+
+Das Wartungsintervall eines Geräts muss größer als null sein.
+Die Kombination aus Datum und Geräteseriennummer ist in
+\texttt{wartungsplan} eindeutig. Für ein Gerät kann deshalb
+höchstens eine Wartung pro Datum geplant werden.
+
+Die Attribute \texttt{ersatzgeraet} und
+\texttt{wartungsplan\_id} dürfen in \texttt{wartung}
+leer sein. \texttt{ersatzgeraet} ist ein optionales Textfeld
+und kein Fremdschlüssel auf die Gerätetabelle.
+Auch \texttt{geraetetyp} in \texttt{typ\_techniker}
+ist kein Fremdschlüssel.
+
+\textbf{Referenzielle Integrität.}
+Fremdschlüssel sichern die Existenz referenzierter Datensätze.
+Änderungen referenzierter Schlüssel werden durch
+\texttt{ON UPDATE CASCADE} weitergegeben.
+
+Ein Standort mit zugeordneten Geräten kann nicht gelöscht werden.
+Ebenso verhindern vorhandene Wartungen das Löschen des betreffenden
+Geräts oder Technikers. Ein Techniker kann außerdem nicht gelöscht
+werden, solange ihm Wartungspläne zugeordnet sind.
+
+Beim Löschen eines Geräts werden dessen Wartungspläne gelöscht,
+sofern keine andere Bedingung das Löschen des Geräts verhindert.
+Beim Löschen eines Wartungsplans bleiben durchgeführte Wartungen
+erhalten; ihre Planreferenz wird auf \texttt{NULL} gesetzt.
+Zuordnungen in den beiden Zuordnungstabellen werden beim Löschen
+des jeweils referenzierten Standorts oder Technikers automatisch
+entfernt.
+
+\subsection{Normalisierung}
+
+Alle Attribute enthalten einzelne Werte; mehrfache Zuständigkeiten
+werden durch separate Zuordnungszeilen dargestellt.
+Damit erfüllt das Schema die \textbf{erste Normalform}.
+
+Die Entitätstabellen besitzen jeweils einen einspaltigen
+Primärschlüssel. Die beiden Zuordnungstabellen bestehen
+ausschließlich aus den Attributen ihres zusammengesetzten
+Primärschlüssels. Partielle Abhängigkeiten von Nichtschlüsselattributen
+liegen daher nicht vor; die \textbf{zweite Normalform} ist erfüllt.
+
+Standortdaten werden ausschließlich in \texttt{standort},
+Technikernamen in \texttt{techniker} und Gerätestammdaten
+in \texttt{geraet} gespeichert. Wartungspläne und Wartungen
+referenzieren diese Datensätze über ihre Schlüssel.
+
+Unter der Annahme, dass keine weiteren fachlichen funktionalen
+Abhängigkeiten bestehen, erfüllt das Schema die
+\textbf{dritte Normalform}. 
+
+Gerät und Techniker einer durchgeführten Wartung werden unabhängig
+von einer optionalen Planreferenz gespeichert. Das Schema erzwingt
+nicht, dass diese Angaben mit den Angaben des referenzierten
+Wartungsplans übereinstimmen.
+(L 04).
+
+% ============================================================
+\section{Database (PostgreSQL)}
+% ============================================================
+
+Das Schema wird durch einen Init-Script erstellt, der von PostgreSQL bei der ersten Start ausgeführt wird (L 07, L 09).
+
+\begin{lstlisting}[language=SQL, caption={init.sql (excerpt) -- schema and seed data}]
+CREATE TABLE standort (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    plz VARCHAR(10) NOT NULL,
+    stadt VARCHAR(100) NOT NULL,
+    strasse VARCHAR(100) NOT NULL,
+    hausnummer VARCHAR(20) NOT NULL
+);
+
+CREATE TABLE techniker (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    name VARCHAR(150) NOT NULL
+);
+
+CREATE TABLE geraet (
+    seriennummer VARCHAR(100) PRIMARY KEY,
+    hersteller VARCHAR(100) NOT NULL,
+    typ VARCHAR(100) NOT NULL,
+    wartungsintervall INTEGER NOT NULL CHECK (wartungsintervall > 0),
+    standort_id BIGINT NOT NULL REFERENCES standort(id)
+        ON UPDATE CASCADE ON DELETE RESTRICT
+);
+
+CREATE TABLE standort_techniker (
+    standort_id BIGINT NOT NULL REFERENCES standort(id)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    techniker_id BIGINT NOT NULL REFERENCES techniker(id)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    PRIMARY KEY (standort_id, techniker_id)
+);
+
+CREATE TABLE typ_techniker (
+    geraetetyp VARCHAR(100) NOT NULL,
+    techniker_id BIGINT NOT NULL REFERENCES techniker(id)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    PRIMARY KEY (geraetetyp, techniker_id)
+);
+
+CREATE TABLE wartungsplan (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    datum DATE NOT NULL,
+    geraet_seriennummer VARCHAR(100) NOT NULL REFERENCES geraet(seriennummer)
+        ON UPDATE CASCADE ON DELETE CASCADE,
+    techniker_id BIGINT NOT NULL REFERENCES techniker(id)
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+    UNIQUE (datum, geraet_seriennummer)
+);
+
+CREATE TABLE wartung (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    datum DATE NOT NULL,
+    ersatzgeraet VARCHAR(100),
+    geraet_seriennummer VARCHAR(100) NOT NULL REFERENCES geraet(seriennummer)
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+    techniker_id BIGINT NOT NULL REFERENCES techniker(id)
+        ON UPDATE CASCADE ON DELETE RESTRICT,
+    wartungsplan_id BIGINT REFERENCES wartungsplan(id)
+        ON UPDATE CASCADE ON DELETE SET NULL
+);
+
+CREATE INDEX idx_geraet_standort ON geraet (standort_id);
+CREATE INDEX idx_wartungsplan_datum ON wartungsplan (datum);
+CREATE INDEX idx_wartung_geraet ON wartung (geraet_seriennummer);
+
+\end{lstlisting}
+
+% ============================================================
+\section{REST API (FastAPI)}
+% ============================================================
+
+Der Zugriff auf die Datenbank erfolgt nur über die REST API (L 08). Read endpoints
+sind öffentlich; write endpoints brauchen den header \texttt{X-API-Key} (cf.\ DBMS\_09).
+
+\renewcommand{\arraystretch}{1.2}
+\begingroup
+\small
+\renewcommand{\arraystretch}{1.2}
+
+\begin{tabularx}{\linewidth}{
+    @{}
+    l
+    >{\raggedright\arraybackslash}p{5.8cm}
+    >{\raggedright\arraybackslash}X
+    c
+    @{}
+}
+\toprule
+\textbf{Methode} & \textbf{Pfad} & \textbf{Zweck} & \textbf{Key} \\
+\midrule
+
+\texttt{GET}
+& \nolinkurl{/health}
+& Datenbankverbindung prüfen
+& -- \\
+
+\texttt{GET}
+& \nolinkurl{/techniker/{techniker_id}/wartungsplan}
+& Wartungspläne eines Technikers mit Geräte- und Standortdaten lesen (JOIN)
+& -- \\
+
+\texttt{GET}
+& \nolinkurl{/geraete/{seriennummer}/wartungen}
+& Wartungshistorie eines Geräts mit Technikerdaten lesen (JOIN)
+& -- \\
+
+\texttt{GET}
+& \nolinkurl{/geraete/{seriennummer}}
+& Gerät mit Standort und nächster offener Wartung ab heute lesen (JOIN, Unterabfrage)
+& -- \\
+
+\texttt{GET}
+& \nolinkurl{/standorte}
+& Alle Standorte auflisten
+& -- \\
+
+\texttt{GET}
+& \nolinkurl{/standorte/{standort_id}/geraete}
+& Geräte eines Standorts auflisten
+& -- \\
+
+\texttt{GET}
+& \nolinkurl{/wartungsplan}
+& Wartungspläne im Zeitraum mit Geräte-, Techniker-, Standortdaten und Durchführungsstatus lesen (JOIN, EXISTS)
+& -- \\
+
+\texttt{GET}
+& \nolinkurl{/wartungsplan/ueberfaellig}
+& Überfällige, offene Wartungspläne mit Tagen der Überschreitung auflisten (JOIN, NOT EXISTS)
+& -- \\
+
+\texttt{GET}
+& \nolinkurl{/techniker}
+& Techniker mit zuständigen Standorten und Gerätetypen auflisten (Unterabfragen)
+& -- \\
+
+\texttt{POST}
+& \nolinkurl{/wartungen}
+& Durchgeführte Wartung erfassen, optional einem Wartungsplan zuordnen
+& Ja \\
+
+\texttt{POST}
+& \nolinkurl{/geraete}
+& Neues Gerät mit Standortzuordnung anlegen
+& Ja \\
+
+\texttt{POST}
+& \nolinkurl{/wartungsplan}
+& Wartung für ein Gerät mit Datum und Techniker planen
+& Ja \\
+
+\texttt{POST}
+& \nolinkurl{/standorte}
+& Neuen Standort anlegen
+& Ja \\
+
+\texttt{POST}
+& \nolinkurl{/techniker}
+& Techniker mit Standort- und Gerätetypzuständigkeiten anlegen
+& Ja \\
+
+\texttt{PUT}
+& \nolinkurl{/techniker/{techniker_id}}
+& Name und Zuständigkeiten eines Technikers ersetzen
+& Ja \\
+
+\texttt{PUT}
+& \nolinkurl{/wartungsplan/{wartungsplan_id}}
+& Datum und Techniker eines Wartungsplans ändern
+& Ja \\
+
+\texttt{PATCH}
+& \nolinkurl{/geraete/{seriennummer}}
+& Einzelne Geräteeigenschaften ändern
+& Ja \\
+
+\texttt{DELETE}
+& \nolinkurl{/wartungsplan/{wartungsplan_id}}
+& Wartungsplan löschen
+& Ja \\
+
+\texttt{GET}
+& \nolinkurl{/statistik/wartungen-pro-techniker}
+& Durchgeführte Wartungen je Techniker im Zeitraum zählen (LEFT JOIN, Aggregation)
+& -- \\
+
+\texttt{GET}
+& \nolinkurl{/statistik/wartungen-pro-standort}
+& Durchgeführte Wartungen und offene Wartungspläne je Standort im Zeitraum zählen (LEFT JOIN, Aggregation)
+& -- \\
+
+\bottomrule
+\end{tabularx}
+
+\medskip
+\noindent
+Die Endpunkte \nolinkurl{/wartungsplan},
+\nolinkurl{/statistik/wartungen-pro-techniker} und
+\nolinkurl{/statistik/wartungen-pro-standort}
+erwarten die Query-Parameter \texttt{von} und \texttt{bis}
+im Format \texttt{YYYY-MM-DD}.
+Die Grenzen des Zeitraums sind eingeschlossen.
+
+\endgroup
+
+
+Alle sachreibenden Endpunkte sind durch einen API-Key-Guard geschützt -- adapted
+from the DBMS\_09 exercise:
+
+\begin{lstlisting}[language=Python, caption={API-key guard (adapted from DBMS\_09)}]
+from fastapi import Header, HTTPException
+import os
+
+def require_api_key(
+    x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+) -> None:
+    if x_api_key is None or not secrets.compare_digest(x_api_key, API_KEY):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Ungültiger oder fehlender API-Key",
+        )
+\end{lstlisting}
+
+% ============================================================
+\section{Frontend (tkinter, packaged as .deb)}
+% ============================================================
+
+Das Frontend ist eine tkinter-Anwendung, welche über die API auf die Datenbank zugreift.
+Hierbei kann der API Key in der \texttt{.env} Datei hinterlegt werden, oder bei Start der Anwendung in
+dem X-API-Key-Feld eingegeben werden.
+
+\textbf{Ausführen} Mittels uv ist es möglich, die Anwendung zu starten, ohne dass die Abhängigkeiten installiert sein müssen.
+Der genaue Ablauf ist in der README Datei im Repository beschrieben.
+
+\textbf{Packaging.}
+Das Frontend kann als Debian-Paket bereitgestellt und auf einem
+kompatiblen Ubuntu- oder Debian-System mit grafischer Oberfläche
+installiert werden. PyInstaller bündelt die Python-Anwendung und
+ihre Python-Abhängigkeiten. Anschließend erstellt
+\texttt{dpkg-deb} daraus das installierbare \texttt{.deb}-Paket.
+
+Voraussetzung sind die installierten Projektabhängigkeiten sowie
+PyInstaller. Die Paketstruktur im Verzeichnis \texttt{deb-paket}
+muss einschließlich Paketinformationen, Startskript und
+Menüeintrag vorbereitet sein. Die folgenden Befehle werden
+im Verzeichnis \texttt{FE} ausgeführt.
+
+\begin{lstlisting}[caption={Erstellen und Installieren des Debian-Pakets}]
+uv add --dev pyinstaller
+
+uv run python -m PyInstaller --noconfirm --clean --onedir \
+  --name wartungsmanagement main.py
+
+mkdir -p deb-paket/opt/wartungsmanagement
+cp -a dist/wartungsmanagement/. \
+  deb-paket/opt/wartungsmanagement/
+
+dpkg-deb --build --root-owner-group \
+  deb-paket wartungsmanagement_1.0.0.deb
+
+sudo apt install ./wartungsmanagement_1.0.0.deb
+\end{lstlisting}
+
+\end{lstlisting}
+
+% ============================================================
+\section{Operation and deployment}
+% ============================================================
+Das Backend läuft in einem Docker-Container. Alle Zugangsdaten sind in einer \texttt{.env} Datei gespeichert,
+welche nicht in das Repository committet wird. Dafür wird aber eine \texttt{.env.example} Datei bereitgestellt, welche die Struktur der \texttt{.env} Datei zeigt.
+Die genauen Schritte zum Starten der Anwendung sind in den entsprechenden README Datei im Repository beschrieben.
+
+\begin{lstlisting}[caption={docker-compose.yml (excerpt, after L 09)}]
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      API_KEY: ${API_KEY}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+
+\end{lstlisting}
+
+\textbf{Deployment steps}
+\begin{enumerate}[leftmargin=1.6em, topsep=2pt]
+  \item \texttt{.env} erstellen und Zugangsdaten eintragen
+  \item \texttt{docker compose up -d} -- starte Datenbank und API.
+  \item \texttt{sudo dpkg -i wartungsmanagement_1.0.0.deb} -- installiere das Frontend.
+  \item Launch \texttt{wartungsmanagement}, Wenn nicht schon in der \texttt{.env} Datei hinterlegt, kann der
+        \texttt{X-API-Key} eigegeben werden.
+\end{enumerate}
+
+% ============================================================
+\section{Reflection}
+% ============================================================
+
+Die Aufteilung in Backend und Frontend hat den Vorteil, dass die Datenbank und die API auf einem Server laufen können, 
+während das Frontend auf einem anderen Rechner läuft. Desweiteren gab es den Dateien auf natürliche Weise eine Trennung und 
+damit dem Projektordner von Anfang an eine Struktur. Docker und uv ermöglichen die Ausführung auf verschhiedenen Systemen, was
+mir zwar in der Entwicklung nicht geholfen hat, aber für die spätere Nutzung der Anwendung von Vorteil ist. In Zukunft könnte
+man die Anwendung noch erweitern um z.B. eine Benutzerverwaltung, sodass nicht jeder Techniker die Datenbank einsehen kann, 
+sondern nur die für ihn relevanten Daten oder eine Möglichkeit Wartungen teilautomatisiert zu planen.
+
+% ============================================================
+\section*{Sources and reuse}
+% ============================================================
+\addcontentsline{toc}{section}{Sources and reuse}
+
+Reused with attribution, as permitted:
+\begin{itemize}[leftmargin=1.4em, topsep=2pt]
+  \item API-key guard and Compose file structure -- adapted from
+        \textbf{DBMS\_09} and \textbf{lecture 09}.
+  \item tkinter \texttt{Treeview} layout -- adapted from
+        \textbf{DBMS\_09 (frontend)} and \textbf{lecture 10}.
+  \item PyInstaller / \texttt{fpm} packaging commands -- after \textbf{lecture
+        13}.
+\end{itemize}
+
+\end{document}
