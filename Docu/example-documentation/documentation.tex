@@ -1,6 +1,7 @@
 \documentclass[11pt,a4paper]{article}
 
 \usepackage{thga-db}
+\usepackage{listings}
 
 \renewcommand{\thgaKurs}{Databases}
 \renewcommand{\thgaDatum}{Summer Term 2026}
@@ -49,8 +50,7 @@ und \textbf{Wartung} sowie zwei Zuordnungstabellen.
 
 Ein Standort kann mehrere Geräte beherbergen, während jedes Gerät
 genau einem Standort zugeordnet ist. Zwischen Standorten und
-Technikern besteht eine N:M-Beziehung, die durch die Tabelle\item PyInstaller / \texttt{fpm} packaging commands -- after \textbf{lecture
-        13}.
+Technikern besteht eine N:M-Beziehung, die durch die Tabelle
 \texttt{standort\_techniker} aufgelöst wird.
 
 Die Tabelle \texttt{typ\_techniker} ordnet Technikern die Gerätetypen
@@ -426,7 +426,7 @@ def require_api_key(
     if x_api_key is None or not secrets.compare_digest(x_api_key, API_KEY):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Ungültiger oder fehlender API-Key",
+            detail="Ungueltiger oder fehlender API-Key",
         )
 \end{lstlisting}
 
@@ -470,7 +470,7 @@ dpkg-deb --build --root-owner-group \
 sudo apt install ./wartungsmanagement_1.0.0.deb
 \end{lstlisting}
 
-\end{lstlisting}
+
 
 % ============================================================
 \section{Operation and deployment}
@@ -520,7 +520,7 @@ volumes:
 \begin{enumerate}[leftmargin=1.6em, topsep=2pt]
   \item \texttt{.env} erstellen und Zugangsdaten eintragen
   \item \texttt{docker compose up -d} -- starte Datenbank und API.
-  \item \texttt{sudo dpkg -i wartungsmanagement_1.0.0.deb} -- installiere das Frontend.
+  \item \texttt{sudo dpkg -i wartungsmanagement\_1.0.0.deb} -- installiere das Frontend.
   \item Launch \texttt{wartungsmanagement}, Wenn nicht schon in der \texttt{.env} Datei hinterlegt, kann der
         \texttt{X-API-Key} eigegeben werden.
 \end{enumerate}
